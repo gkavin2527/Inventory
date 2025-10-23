@@ -1,13 +1,13 @@
-// models/Item.js
 const mongoose = require('mongoose');
 
 const ItemSchema = new mongoose.Schema({
-  name: { type: String, required: true, unique: true, trim: true },
-  category: { type: String, enum: ['GROCERY','BEVERAGE','HOUSEHOLD','PERSONAL_CARE','OTHER'], default: 'OTHER' },
-  minThreshold: { type: Number, default: 5 },
+  name: { type: String, required: true },
+  category: { type: String, required: true },
   quantity: { type: Number, default: 0 },
+  minThreshold: { type: Number, default: 10 }, // added
+  price: { type: Number, default: 0 }, // optional if used in purchase total
   perishable: { type: Boolean, default: false },
-  expiryDate: { type: Date, default: null }
-}, { timestamps: true });
+  expiryDate: { type: Date, default: null },
+});
 
 module.exports = mongoose.model('Item', ItemSchema);

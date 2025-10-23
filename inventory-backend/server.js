@@ -4,48 +4,51 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const axios = require('axios');
-const purchaseRoutes = require('./routes/purchase');
+
 const app = express();
 
-// ---- Middleware ----
-app.use(cors({
-  origin: "*",
-  methods: "GET,POST,PUT,DELETE",
-  allowedHeaders: "Content-Type,Authorization"
-}));
+// Middleware
+app.use(cors());
 app.use(express.json());
+
+// Routes
+const itemRoutes = require('./routes/items');
+const purchaseRoutes = require('./routes/purchase');
+const shoppingRoutes = require('./routes/shopping');
+
+
+app.use('/api', shoppingRoutes);
+app.use('/api/items', itemRoutes);
 app.use('/api/purchase', purchaseRoutes);
 
-// ---- Config ----
-const JAVA_BASE = process.env.JAVA_BASE || 'http://localhost:8080';
+// MongoDB connect
 const MONGO_URI = process.env.MONGO_URI;
-console.log("MongoDB URI from env:", MONGO_URI);
-
-// ---- DB connect ----
 mongoose.connect(MONGO_URI)
-  .then(() => console.log("✅ Connected to MongoDB Atlas"))
+  .then(() => console.log("✅ Connected to MongoDB"))
   .catch(err => console.error("❌ MongoDB connection error:", err));
 
-// ---- Models ----
-const Item = require('./models/Item');
-
-// ---- Health / Java check ----
-app.get('/', (_req, res) => res.send('Inventory Backend is running'));
+// Health check
+app.get('/', (_req, res) => res.send('Node.js Backend running'));
+app.get('/check-java', async (_req, res) => {
+  try {
+    const r = await axios.get(`${process.env.JAVA_BASE}/inventory/check`);
+    res.send(r.data);
+  } catch {
+    res.status(500).send('Java service not reachable');
+  }
+});
 
 app.get('/check-inventory', async (_req, res) => {
   try {
-    const r = await axios.get(`${JAVA_BASE}/inventory/check`);
+    const r = await axios.get(`${process.env.JAVA_BASE}/inventory/check`);
     res.send(r.data); // "Inventory service is running!"
   } catch {
     res.status(500).send('Error connecting to Java service');
   }
 });
 
-// ---- CRUD via Mongo (use these going forward) ----
-const itemRoutes = require('./routes/items');
-app.use('/api/items', itemRoutes);
-
-// ---- Expired (computed from Mongo) ----
+// Expired items
+const Item = require('./models/Item');
 app.get('/api/expired', async (_req, res) => {
   try {
     const today = new Date();
@@ -55,27 +58,21 @@ app.get('/api/expired', async (_req, res) => {
     }).sort({ expiryDate: 1 });
     res.json(expired);
   } catch (e) {
-    res.status(500).json({ error: 'Failed to fetch expired items' });
+    res.status(500).json({ error: e.message });
   }
 });
 
-// ---- Shopping list: build stock from Mongo, ask Java to compute ----
-app.get('/api/shopping-list', async (_req, res) => {
+// Shopping list
+app.get('/api/shopping-list', async (req, res) => {
   try {
-    const items = await Item.find();
-    // Build { "Milk": 2, "Eggs": 10, ... }
-    const stock = {};
-    for (const it of items) stock[it.name] = it.quantity;
-
-    // Java expects: { "stock": { ... } }
-    const r = await axios.post(`${JAVA_BASE}/inventory/shopping-list`, { stock });
-    // r.data is [ "Milk", "Bread", ... ] (items below Java's threshold)
-    res.json({ needed: r.data });
-  } catch (e) {
-    res.status(500).json({ error: 'Failed to generate shopping list' });
+    const allItems = await Item.find(); // get all items
+    const needed = allItems.filter(item => item.quantity <= (item.minThreshold || 10));
+    res.json({ needed, items: allItems });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 
-// ---- Start ----
+// Start server
 const PORT = process.env.PORT || 5001;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

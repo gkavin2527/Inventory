@@ -1,53 +1,44 @@
-const express = require("express");
+const express = require('express');
 const router = express.Router();
-const Item = require("../models/Item");
+const Item = require('../models/Item');
 
-// Create
-router.post("/", async (req, res) => {
+// Create item
+router.post('/', async (req, res) => {
   try {
-    const doc = await Item.create(req.body);
-    res.json(doc);
+    const item = await Item.create(req.body);
+    res.json(item);
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
 });
 
-// Read all
-router.get("/", async (_req, res) => {
-  const docs = await Item.find().sort({ createdAt: -1 });
-  res.json(docs);
-});
-
-// Read one by id
-router.get("/:id", async (req, res) => {
+// Read all items
+router.get('/', async (_req, res) => {
   try {
-    const doc = await Item.findById(req.params.id);
-    if (!doc) return res.status(404).json({ error: "Not found" });
-    res.json(doc);
-  } catch {
-    res.status(400).json({ error: "Invalid id" });
+    const items = await Item.find();
+    res.json(items);
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 
-// Update (partial)
-router.put("/:id", async (req, res) => {
+// Update item
+router.put('/:id', async (req, res) => {
   try {
-    const doc = await Item.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!doc) return res.status(404).json({ error: "Not found" });
-    res.json(doc);
+    const item = await Item.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    res.json(item);
   } catch (e) {
     res.status(400).json({ error: e.message });
   }
 });
 
-// Delete
-router.delete("/:id", async (req, res) => {
+// Delete item
+router.delete('/:id', async (req, res) => {
   try {
-    const doc = await Item.findByIdAndDelete(req.params.id);
-    if (!doc) return res.status(404).json({ error: "Not found" });
-    res.json({ ok: true });
-  } catch {
-    res.status(400).json({ error: "Invalid id" });
+    await Item.findByIdAndDelete(req.params.id);
+    res.json({ message: 'Item deleted' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
   }
 });
 
